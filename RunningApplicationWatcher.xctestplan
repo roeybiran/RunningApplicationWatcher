@@ -1,0 +1,32 @@
+{
+  "configurations" : [
+    {
+      "id" : "8D5E415B-BF7F-499D-8DA4-8FFC49D4CB70",
+      "name" : "Test Scheme Action",
+      "options" : {
+
+      }
+    }
+  ],
+  "defaultOptions" : {
+    "codeCoverage" : {
+      "targets" : [
+        {
+          "containerPath" : "container:",
+          "identifier" : "RunningApplicationWatcher",
+          "name" : "RunningApplicationWatcher"
+        }
+      ]
+    }
+  },
+  "testTargets" : [
+    {
+      "target" : {
+        "containerPath" : "container:",
+        "identifier" : "RunningApplicationWatcherTests",
+        "name" : "RunningApplicationWatcherTests"
+      }
+    }
+  ],
+  "version" : 1
+}
