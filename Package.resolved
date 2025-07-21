@@ -1,15 +1,6 @@
 {
-  "originHash" : "3acd2ba837878d55e2862421ca950e8c1ba99f4242e41964e8a32c5e501c2a2d",
+  "originHash" : "73a7ffa5af22b22f7fcc494ea97e2bde7bf6328931dcb22b9fce11ee03037011",
   "pins" : [
-    {
-      "identity" : "axkit",
-      "kind" : "remoteSourceControl",
-      "location" : "https://github.com/roeybiran/AXKit",
-      "state" : {
-        "branch" : "main",
-        "revision" : "a20a89b8cf9ef5eeba0552b803eff1f1d72ae632"
-      }
-    },
     {
       "identity" : "combine-schedulers",
       "kind" : "remoteSourceControl",
@@ -25,7 +16,7 @@
       "location" : "https://github.com/roeybiran/RBKit",
       "state" : {
         "branch" : "main",
-        "revision" : "56145190c0da401b32b274c34646d34638f88d03"
+        "revision" : "f9c9edc7cca95b69bc7209e4acdb4453df8a9b60"
       }
     },
     {
@@ -87,8 +78,8 @@
       "kind" : "remoteSourceControl",
       "location" : "https://github.com/pointfreeco/xctest-dynamic-overlay",
       "state" : {
-        "revision" : "39de59b2d47f7ef3ca88a039dff3084688fe27f4",
-        "version" : "1.5.2"
+        "revision" : "23e3442166b5122f73f9e3e622cd1e4bafeab3b7",
+        "version" : "1.6.0"
       }
     }
   ],
