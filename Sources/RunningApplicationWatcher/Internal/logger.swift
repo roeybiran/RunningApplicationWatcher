@@ -7,7 +7,7 @@ private let logger = Logger(
 )
 
 func debugLog(_ message: String) {
-  if UserDefaults.standard.bool(forKey: "_RunningApplicationWatcherLoggingSilenced") { return }
+  guard UserDefaults.standard.bool(forKey: "_RunningApplicationWatcherLoggingEnabled") else { return }
   logger.log("\(message, privacy: .public)")
 }
 
