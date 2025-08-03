@@ -15,20 +15,6 @@ struct ProcessesClient: Sendable {
   var getProcessForPID: @Sendable (_ pid: pid_t, _ psn: UnsafeMutablePointer<ProcessSerialNumber>) -> OSStatus = { _, _ in 0 }
 }
 
-extension ProcessesClient {
-  // "these private APIs are more reliable than Bundle.init? as it can return nil (e.g. for com.apple.dock.etci)"
-  // https://github.com/lwouis/alt-tab-macos/blob/70ee681757628af72ed10320ab5dcc552dcf0ef6/src/logic/Applications.swift#L115
-  func isXPC(pid: pid_t) -> Bool {
-    var psn = ProcessSerialNumber()
-    _ = getProcessForPID(pid, &psn)
-    var info = ProcessInfoRec()
-    _ = getProcessInformation(&psn, &info)
-    // https://github.com/lwouis/alt-tab-macos/blob/70ee681757628af72ed10320ab5dcc552dcf0ef6/src/api-wrappers/HelperExtensions.swift#L174
-    let nsFileType = NSFileTypeForHFSTypeCode(info.processType).trimmingCharacters(in: CharacterSet(charactersIn: "'"))
-    debugLog("ProcessClient nsFileType: \(nsFileType)")
-    return nsFileType == "XPC!"
-  }
-}
 
 extension ProcessesClient: DependencyKey {
   static let liveValue = Self(

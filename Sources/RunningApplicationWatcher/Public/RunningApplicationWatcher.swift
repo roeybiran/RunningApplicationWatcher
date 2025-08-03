@@ -17,6 +17,29 @@ final class RunningApplicationWatcher {
     self.workspace = workspace
   }
 
+  // MARK: Internal
+
+  // "these private APIs are more reliable than Bundle.init? as it can return nil (e.g. for com.apple.dock.etci)"
+  // https://github.com/lwouis/alt-tab-macos/blob/70ee681757628af72ed10320ab5dcc552dcf0ef6/src/logic/Applications.swift#L115
+  func getNSFileType(pid: pid_t) -> String? {
+    var psn = ProcessSerialNumber()
+    _ = processInfo.getProcessForPID(pid, &psn)
+    var info = ProcessInfoRec()
+    _ = processInfo.getProcessInformation(&psn, &info)
+    // https://github.com/lwouis/alt-tab-macos/blob/70ee681757628af72ed10320ab5dcc552dcf0ef6/src/api-wrappers/HelperExtensions.swift#L174
+    let nsFileType = NSFileTypeForHFSTypeCode(info.processType)
+
+    assert({
+      if let nsFileType, nsFileType.contains("XPC") {
+        return nsFileType == "'XPC!'"
+      } else {
+        return true
+      }
+    }())
+
+    return nsFileType
+  }
+
   // MARK: Public
 
   public func events() -> AsyncStream<RunningApplicationEvent> {
@@ -25,7 +48,7 @@ final class RunningApplicationWatcher {
     let runningApplicationsObservation = workspace.observe(\.runningApplications, options: [
       .initial,
       .new,
-    ]) { [weak self, processInfo, sysctlClient] _, change in
+    ]) { [weak self, sysctlClient] _, change in
       guard let self else { assertionFailure()
         return
       }
@@ -46,8 +69,9 @@ final class RunningApplicationWatcher {
         // See https://github.com/lwouis/alt-tab-macos/issues/3545
         // See https://github.com/lwouis/alt-tab-macos/blob/e9e732756e140a080b0ed984af89051d447653b5/src/logic/Applications.swift#L104
         let isPasswords = unsafeApp.bundleIdentifier == "com.apple.Passwords"
-        if !isPasswords && processInfo.isXPC(pid: pid) {
+        if !isPasswords && self.getNSFileType(pid: pid) == "'XPC!'" {
           debugLog(event: .skippingXPC, app: unsafeApp)
+          debugLog("ProcessClient nsFileType: \(String(describing: nsFileType))")
           continue
         }
 
@@ -126,9 +150,6 @@ final class RunningApplicationWatcher {
     return stream
   }
 
-  // MARK: Internal
-
-  var appObservations = [NSRunningApplication: [NSKeyValueObservation]]()
 
   // MARK: Private
 
@@ -137,5 +158,7 @@ final class RunningApplicationWatcher {
   // @Dependency(\.nsWorkspaceClient) private var workspace
 
   private let workspace: NSWorkspace
+  
+  var appObservations = [NSRunningApplication: [NSKeyValueObservation]]()
 
 }

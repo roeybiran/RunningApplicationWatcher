@@ -5,10 +5,10 @@ import Testing
 
 @testable import RunningApplicationWatcher
 
-@Suite
+@Suite("RunningApplicationWatcherClient Tests")
 @MainActor
 struct RunningApplicationWatcherClientTests {
-  @Test
+  @Test("dependency key live value should create valid client")
   func dependencyKey_liveValue_shouldCreateValidClient() async throws {
     await confirmation(expectedCount: 2) { c in
       await withDependencies { deps in
