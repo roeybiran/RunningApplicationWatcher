@@ -16,8 +16,8 @@ struct ProcessesClient: Sendable {
 }
 
 extension ProcessesClient {
-  /// "these private APIs are more reliable than Bundle.init? as it can return nil (e.g. for com.apple.dock.etci)"
-  /// https://github.com/lwouis/alt-tab-macos/blob/70ee681757628af72ed10320ab5dcc552dcf0ef6/src/logic/Applications.swift#L115
+  // "these private APIs are more reliable than Bundle.init? as it can return nil (e.g. for com.apple.dock.etci)"
+  // https://github.com/lwouis/alt-tab-macos/blob/70ee681757628af72ed10320ab5dcc552dcf0ef6/src/logic/Applications.swift#L115
   func isXPC(pid: pid_t) -> Bool {
     var psn = ProcessSerialNumber()
     _ = getProcessForPID(pid, &psn)
@@ -54,12 +54,12 @@ extension DependencyValues {
   }
 }
 
-/// see Processes.h
-/// https://github.com/lwouis/alt-tab-macos/blob/70ee681757628af72ed10320ab5dcc552dcf0ef6/src/api-wrappers/PrivateApis.swift#L228
+// see Processes.h
+// https://github.com/lwouis/alt-tab-macos/blob/70ee681757628af72ed10320ab5dcc552dcf0ef6/src/api-wrappers/PrivateApis.swift#L228
 @_silgen_name("GetProcessInformation") @discardableResult
 func GetProcessInformation(_ psn: UnsafeMutablePointer<ProcessSerialNumber>, _ info: UnsafeMutablePointer<ProcessInfoRec>)
   -> OSErr
 
-/// https://github.com/lwouis/alt-tab-macos/blob/70ee681757628af72ed10320ab5dcc552dcf0ef6/src/api-wrappers/PrivateApis.swift#L232
+// https://github.com/lwouis/alt-tab-macos/blob/70ee681757628af72ed10320ab5dcc552dcf0ef6/src/api-wrappers/PrivateApis.swift#L232
 @_silgen_name("GetProcessForPID") @discardableResult
 func GetProcessForPID(_ pid: pid_t, _ psn: UnsafeMutablePointer<ProcessSerialNumber>) -> OSStatus
