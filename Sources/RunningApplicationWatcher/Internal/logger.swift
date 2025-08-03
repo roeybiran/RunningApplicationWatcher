@@ -14,12 +14,12 @@ func debugLog(_ message: String) {
 
 enum Event: CustomStringConvertible {
   case launched
-  case terminated(Bool?)
-  case activationPolicy(NSApplication.ActivationPolicy?)
-  case isFinishedLaunching(Bool?)
-  case isHidden(Bool?)
+  case terminated(Bool)
+  case activationPolicy(NSApplication.ActivationPolicy)
+  case isFinishedLaunching(Bool)
+  case isHidden(Bool)
   case activated
-  case skippingXPC
+  case skippingXPC(String)
   case skippingZombie
 
   // MARK: Internal
@@ -29,17 +29,17 @@ enum Event: CustomStringConvertible {
     case .launched:
       "launched"
     case .terminated(let bool):
-      "terminated \(String(describing: bool))"
+      "terminated \(bool)"
     case .activationPolicy(let activationPolicy):
-      "activation policy \(String(describing: activationPolicy))"
+      "activation policy \(activationPolicy)"
     case .isFinishedLaunching(let bool):
-      "is finished launching \(String(describing: bool))"
+      "is finished launching \(bool)"
     case .isHidden(let bool):
-      "is hidden \(String(describing: bool))"
+      "is hidden \(bool)"
     case .activated:
       "activated"
-    case .skippingXPC:
-      "skipping XPC"
+    case .skippingXPC(let nsFileType):
+      "skipping XPC (nsFileType: \(nsFileType))"
     case .skippingZombie:
       "skipping zombie"
     }

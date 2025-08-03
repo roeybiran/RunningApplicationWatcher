@@ -6,12 +6,9 @@ import Testing
 
 @testable import RunningApplicationWatcher
 
-@Suite("RunningApplicationWatcher Tests", .serialized)
+@Suite("NSWorkspace.runningApplications Observation")
 @MainActor
-struct RunningApplicationWatcherTests {
-
-  // MARK: Internal
-
+struct RunningApplicationsTests {
   @Test("events should observe correct NSWorkSpace key paths")
   func events_shouldObserveCorrectNSWorkSpaceKeyPaths() async throws {
     await withDependencies { deps in
@@ -45,9 +42,7 @@ struct RunningApplicationWatcherTests {
     }
   }
 
-  // MARK: - NSWorkspace.runningApplications Observations
-
-  @Test("events with running applications changed should emit launched event")
+  @Test("Should emit launched event")
   func events_withRunningApplicationsChanged_shouldEmitLaunchedEvent() async throws {
     await withDependencies { deps in
       deps.processInfoClient = .nonXPC
@@ -121,58 +116,64 @@ struct RunningApplicationWatcherTests {
     }
   }
 
-  @Test("events with first app is XPC should skip app")
+  @Test("events with first app is XPC should skip app and verify endpoints are called")
   func events_withFirstAppIsXPC_shouldSkipApp() async throws {
-    await withDependencies { deps in
-      deps.processInfoClient = ProcessesClient(
-        getProcessInformation: { pid, info in
-          if pid.pointee.highLongOfPSN == 0 {
-            info.pointee.processType = NSHFSTypeCodeFromFileType("'XPC!'")
-          } else {
-            info.pointee.processType = NSHFSTypeCodeFromFileType("'APPL'")
-          }
-          return .zero
-        },
-        getProcessForPID: { pid, ptr in
-          if pid == 0 {
-            ptr.pointee = ProcessSerialNumber(highLongOfPSN: 0, lowLongOfPSN: 0)
-          } else {
-            ptr.pointee = ProcessSerialNumber(highLongOfPSN: 1, lowLongOfPSN: 1)
-          }
-          return noErr
-        })
-      deps.sysctlClient = .nonZombie
-    } operation: {
-      let xpcApp = AppMock(_isFinishedLaunching: false, _processIdentifier: 0)
-      let regularApp = AppMock(_isFinishedLaunching: false, _processIdentifier: 1)
-      let mockApps = [xpcApp, regularApp]
-      let mockWorkspace = NSWorkspace.Mock()
+    await confirmation("getProcessInformation should be called twice", expectedCount: 2) { confirmGetProcessInfo in
+      await confirmation("getProcessForPID should be called twice", expectedCount: 2) { confirmGetProcessForPID in
+        await withDependencies { deps in
+          deps.processInfoClient = ProcessesClient(
+            getProcessInformation: { pid, info in
+              confirmGetProcessInfo()
+              if pid.pointee.highLongOfPSN == 0 {
+                info.pointee.processType = NSHFSTypeCodeFromFileType("'XPC!'")
+              } else {
+                info.pointee.processType = NSHFSTypeCodeFromFileType("'APPL'")
+              }
+              return .zero
+            },
+            getProcessForPID: { pid, ptr in
+              confirmGetProcessForPID()
+              if pid == 0 {
+                ptr.pointee = ProcessSerialNumber(highLongOfPSN: 0, lowLongOfPSN: 0)
+              } else {
+                ptr.pointee = ProcessSerialNumber(highLongOfPSN: 1, lowLongOfPSN: 1)
+              }
+              return noErr
+            })
+          deps.sysctlClient = .nonZombie
+        } operation: {
+          let xpcApp = AppMock(_isFinishedLaunching: false, _processIdentifier: 0)
+          let regularApp = AppMock(_isFinishedLaunching: false, _processIdentifier: 1)
+          let mockApps = [xpcApp, regularApp]
+          let mockWorkspace = NSWorkspace.Mock()
 
-      var collectedEvents: [RunningApplicationEvent] = []
-      let sut = RunningApplicationWatcher(workspace: mockWorkspace)
+          var collectedEvents: [RunningApplicationEvent] = []
+          let sut = RunningApplicationWatcher(workspace: mockWorkspace)
 
-      Task {
-        for await event in sut.events() {
-          collectedEvents.append(event)
+          Task {
+            for await event in sut.events() {
+              collectedEvents.append(event)
+            }
+          }
+
+          mockWorkspace._runningApplications = mockApps
+
+          try? await Task.sleep(for: Self.testSleepDuration)
+
+          #expect(sut.appObservations.keys.count == 1)
+          #expect(sut.appObservations[regularApp]?.count == 4)
+
+          let expectedEvents: [RunningApplicationEvent] = [
+            .launched([regularApp]),
+          ]
+
+          #expect(collectedEvents == expectedEvents)
         }
       }
-
-      mockWorkspace._runningApplications = mockApps
-
-      try? await Task.sleep(for: Self.testSleepDuration)
-
-      #expect(sut.appObservations.keys.count == 1)
-      #expect(sut.appObservations[regularApp]?.count == 4)
-
-      let expectedEvents: [RunningApplicationEvent] = [
-        .launched([regularApp]),
-      ]
-
-      #expect(collectedEvents == expectedEvents)
     }
   }
 
-  @Test("events with Passwords.app should not skip app")
+  @Test("events with first app is Passwords.app (XPC) should not skip app")
   func events_withPasswordsAppAsXPC_shouldNotSkipApp() async throws {
     await withDependencies { deps in
       deps.processInfoClient = ProcessesClient(
@@ -268,9 +269,14 @@ struct RunningApplicationWatcherTests {
       #expect(collectedEvents == expectedEvents)
     }
   }
+}
 
-  // MARK: - NSWorkspace.frontmostApplication Observations
 
+// MARK: - NSWorkspace.frontmostApplication Observations
+
+@Suite("NSWorkspace.runningApplications")
+@MainActor
+struct FrontmostApplicationTests {
   @Test("events with frontmost application changed should emit activated event")
   func events_withFrontmostApplicationChanged_shouldEmitActivatedEvent() async throws {
     await withDependencies { deps in
@@ -368,9 +374,12 @@ struct RunningApplicationWatcherTests {
       #expect(collectedEvents == expectedEvents)
     }
   }
+}
 
-  // MARK: - NSRunningApplication Observations
-
+// MARK: - NSRunningApplication Observations
+@Suite("NSRunningApplication Observations")
+@MainActor
+struct NSRunningApplicationObservationsTests {
   @Test("events with initial isFinishedLaunching true should emit didFinishedLaunching event")
   func events_withInitialIsFinishedLaunchingTrue_shouldEmitDidFinishedLaunchingEvent() async throws {
     await withDependencies { deps in
@@ -602,79 +611,10 @@ struct RunningApplicationWatcherTests {
     }
   }
 
-  // MARK: - getNSFileType Tests
-  
-  @Test("getNSFileType when process type is XPC should return 'XPC!'")
-  func getNSFileType_whenProcessTypeIsXPC_shouldReturnXPCString() async throws {
-    withDependencies { deps in
-      deps.processInfoClient = ProcessesClient(
-        getProcessInformation: { _, info in
-          info.pointee.processType = NSHFSTypeCodeFromFileType("'XPC!'")
-          return .zero
-        },
-        getProcessForPID: { _, _ in noErr })
-    } operation: {
-      let sut = RunningApplicationWatcher(workspace: NSWorkspace.Mock())
-      #expect(sut.getNSFileType(pid: 123) == "'XPC!'")
-    }
-  }
-
-  @Test("getNSFileType when process type is not XPC should return 'APPL'")
-  func getNSFileType_whenProcessTypeIsNotXPC_shouldReturnAPPLString() async throws {
-    withDependencies { deps in
-      deps.processInfoClient = ProcessesClient(
-        getProcessInformation: { _, info in
-          info.pointee.processType = NSHFSTypeCodeFromFileType("'APPL'")
-          return .zero
-        },
-        getProcessForPID: { _, _ in noErr })
-    } operation: {
-      let sut = RunningApplicationWatcher(workspace: NSWorkspace.Mock())
-      #expect(sut.getNSFileType(pid: 123) == "'APPL'")
-    }
-  }
-
-  @Test("getNSFileType with valid PID should call getProcessInformation once")
-  func getNSFileType_withValidPid_shouldCallGetProcessInformationOnce() async throws {
-    await confirmation(expectedCount: 1) { c in
-      withDependencies { deps in
-        deps.processInfoClient = ProcessesClient(
-          getProcessInformation: { _, info in
-            c()
-            info.pointee.processType = NSHFSTypeCodeFromFileType("'XPC!'")
-            return .zero
-          },
-          getProcessForPID: { _, _ in noErr })
-      } operation: {
-        let sut = RunningApplicationWatcher(workspace: NSWorkspace.Mock())
-        _ = sut.getNSFileType(pid: 456)
-      }
-    }
-  }
-
-  @Test("getNSFileType with valid PID should call getProcessForPID once with correct parameters")
-  func getNSFileType_withValidPid_shouldCallGetProcessForPIDOnceWithCorrectParameters() async throws {
-    await confirmation(expectedCount: 1) { c in
-      withDependencies { deps in
-        deps.processInfoClient = ProcessesClient(
-          getProcessInformation: { _, info in
-            info.pointee.processType = NSHFSTypeCodeFromFileType("'XPC!'")
-            return .zero
-          },
-          getProcessForPID: { pid, _ in
-            c()
-            #expect(pid == 456)
-            return noErr
-          })
-      } operation: {
-        let sut = RunningApplicationWatcher(workspace: NSWorkspace.Mock())
-        _ = sut.getNSFileType(pid: 456)
-      }
-    }
-  }
-
-  // MARK: Private
-
-  private static let testSleepDuration = Duration.seconds(0.02)
-
 }
+
+
+// MARK: Private
+
+private static let testSleepDuration = Duration.seconds(0.02)
+

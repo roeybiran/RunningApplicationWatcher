@@ -21,7 +21,7 @@ final class RunningApplicationWatcher {
 
   // "these private APIs are more reliable than Bundle.init? as it can return nil (e.g. for com.apple.dock.etci)"
   // https://github.com/lwouis/alt-tab-macos/blob/70ee681757628af72ed10320ab5dcc552dcf0ef6/src/logic/Applications.swift#L115
-  func getNSFileType(pid: pid_t) -> String? {
+  private func getNSFileType(pid: pid_t) -> String? {
     var psn = ProcessSerialNumber()
     _ = processInfo.getProcessForPID(pid, &psn)
     var info = ProcessInfoRec()
@@ -69,9 +69,8 @@ final class RunningApplicationWatcher {
         // See https://github.com/lwouis/alt-tab-macos/issues/3545
         // See https://github.com/lwouis/alt-tab-macos/blob/e9e732756e140a080b0ed984af89051d447653b5/src/logic/Applications.swift#L104
         let isPasswords = unsafeApp.bundleIdentifier == "com.apple.Passwords"
-        if !isPasswords && self.getNSFileType(pid: pid) == "'XPC!'" {
-          debugLog(event: .skippingXPC, app: unsafeApp)
-          debugLog("ProcessClient nsFileType: \(String(describing: nsFileType))")
+        if let nsFileType = getNSFileType(pid: pid), !isPasswords && nsFileType == "'XPC!'" {
+          debugLog(event: .skippingXPC(nsFileType), app: unsafeApp)
           continue
         }
 
