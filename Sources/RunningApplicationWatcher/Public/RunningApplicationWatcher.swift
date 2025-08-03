@@ -1,7 +1,7 @@
-import Foundation
 import AppKit
 import Dependencies
 import DependenciesMacros
+import Foundation
 import RBKit
 
 // https://developer.apple.com/documentation/foundation/nskeyvalueobservedchange/newvalue
@@ -11,24 +11,27 @@ import RBKit
 @MainActor
 final class RunningApplicationWatcher {
 
-  var appObservations = [NSRunningApplication: [NSKeyValueObservation]]()
-
-  @Dependency(\.processInfoClient) private var processInfo
-  @Dependency(\.sysctlClient) private var sysctlClient
-  // @Dependency(\.nsWorkspaceClient) private var workspace
-  
-  private let workspace: NSWorkspace
+  // MARK: Lifecycle
 
   public init(workspace: NSWorkspace) {
     self.workspace = workspace
   }
 
+  // MARK: Public
+
   public func events() -> AsyncStream<RunningApplicationEvent> {
     let (stream, continuation) = AsyncStream.makeStream(of: RunningApplicationEvent.self)
 
-    let runningApplicationsObservation = workspace.observe(\.runningApplications, options: [.initial, .new]) { [weak self, processInfo, sysctlClient] workspace, change in
-      guard let self else { assertionFailure(); return }
-      guard let unsafeApps = change.newValue else { assert(change.kind == .removal || change.kind == .replacement); return }
+    let runningApplicationsObservation = workspace.observe(\.runningApplications, options: [
+      .initial,
+      .new,
+    ]) { [weak self, processInfo, sysctlClient] _, change in
+      guard let self else { assertionFailure()
+        return
+      }
+      guard let unsafeApps = change.newValue else { assert(change.kind == .removal || change.kind == .replacement)
+        return
+      }
 
       var safeApps = [NSRunningApplication]()
 
@@ -39,7 +42,11 @@ final class RunningApplicationWatcher {
           continue
         }
 
-        if processInfo.isXPC(pid: pid) {
+        // Password is a special case of a process reported as "XPC" (misconfigured bundle perhaps) that has GUI
+        // See https://github.com/lwouis/alt-tab-macos/issues/3545
+        // See https://github.com/lwouis/alt-tab-macos/blob/e9e732756e140a080b0ed984af89051d447653b5/src/logic/Applications.swift#L104
+        let isPasswords = unsafeApp.bundleIdentifier == "com.apple.Passwords"
+        if !isPasswords && processInfo.isXPC(pid: pid) {
           debugLog(event: .skippingXPC, app: unsafeApp)
           continue
         }
@@ -64,13 +71,7 @@ final class RunningApplicationWatcher {
           continuation.yield(.didFinishedLaunching(app))
         }
 
-//        let isActiveObservation = safeApp.observe(\.isActive, options: [.initial, .new]) { app, _ in
-//          guard app.isActive else { return }
-//          debugLog(event: .activated, app: app)
-//          continuation.yield(.activated(app))
-//        }
-
-        let activationPolicyObservation = safeApp.observe(\.activationPolicy, options: [.new]) { app, change in
+        let activationPolicyObservation = safeApp.observe(\.activationPolicy, options: [.new]) { app, _ in
           debugLog(event: .activationPolicy(app.activationPolicy), app: app)
           continuation.yield(.activationPolicyChanged(app))
         }
@@ -100,14 +101,14 @@ final class RunningApplicationWatcher {
             isFinishedLaunchingObservation,
             activationPolicyObservation,
             isHiddenObservation,
-            isTerminatedObservation
+            isTerminatedObservation,
           ]
         }
       }
     }
 
     //  much more reliable than observing "\.isActive" individually on the app
-    let frontmostApplicationObservation = workspace.observe(\.frontmostApplication, options: [.initial, .new]) { workspace, change in
+    let frontmostApplicationObservation = workspace.observe(\.frontmostApplication, options: [.initial, .new]) { workspace, _ in
       guard let app = workspace.frontmostApplication else { return }
       debugLog(event: .activated, app: app)
       Task { @MainActor [weak self] in
@@ -122,21 +123,19 @@ final class RunningApplicationWatcher {
       frontmostApplicationObservation.invalidate()
     }
 
-
     return stream
   }
+
+  // MARK: Internal
+
+  var appObservations = [NSRunningApplication: [NSKeyValueObservation]]()
+
+  // MARK: Private
+
+  @Dependency(\.processInfoClient) private var processInfo
+  @Dependency(\.sysctlClient) private var sysctlClient
+  // @Dependency(\.nsWorkspaceClient) private var workspace
+
+  private let workspace: NSWorkspace
+
 }
-
-//  private func isXPC(_ app: NSRunningApplication) -> Bool {
-//    // example for XPC service that if observed, crashes Syphon. Launched whenever you run an Xcode playground
-//    // /Applications/Xcode.app/Contents/SharedFrameworks/DVTPlaygroundStubMacServices.framework/Versions/A/XPCServices/com.apple.dt.Xcode.PlaygroundStub-macosx.xpc/
-//    // https://github.com/lwouis/alt-tab-macos/blob/70ee681757628af72ed10320ab5dcc552dcf0ef6/src/logic/Applications.swift#L109
-//    if let bundleURL = app.bundleURL, let bundle = bundleClient.create(url: bundleURL) {
-//      let isXPCService = bundleClient.object(inBundle: bundle, forInfoDictionaryKey: "XPCService") != nil
-//      let isBundlePackgeTypeXPC = bundleClient
-//        .object(inBundle: bundle, forInfoDictionaryKey: "CFBundlePackageType") as? String == "XPC!"
-//      let isXPC = isXPCService || isBundlePackgeTypeXPC
-//      if isXPC { return false }
-//    }
-//  }
-

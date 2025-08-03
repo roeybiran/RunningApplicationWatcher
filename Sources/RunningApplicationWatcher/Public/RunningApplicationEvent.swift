@@ -9,4 +9,3 @@ public enum RunningApplicationEvent: Hashable, Sendable {
   case unhidden(NSRunningApplication)
   case activationPolicyChanged(NSRunningApplication)
 }
-

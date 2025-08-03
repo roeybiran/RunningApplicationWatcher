@@ -1,29 +1,32 @@
-import Foundation
 import AppKit
 import Dependencies
 import DependenciesMacros
+import Foundation
+
+// MARK: - RunningApplicationWatcherClient
 
 @DependencyClient
 public struct RunningApplicationWatcherClient: Sendable {
   public var events: @MainActor @Sendable () -> AsyncStream<RunningApplicationEvent> = { .finished }
 }
 
+// MARK: DependencyKey
+
 extension RunningApplicationWatcherClient: DependencyKey {
-  public static let liveValue: Self = {
-    return Self(events: {
-      let instance = RunningApplicationWatcher(workspace: .shared)
-      let (stream, cont) = AsyncStream.makeStream(of: RunningApplicationEvent.self)
-      let task = Task {
-        for await event in instance.events() {
-          cont.yield(event)
-        }
+  public static let liveValue = Self(events: {
+    let instance = RunningApplicationWatcher(workspace: .shared)
+    let (stream, cont) = AsyncStream.makeStream(of: RunningApplicationEvent.self)
+    let task = Task {
+      for await event in instance.events() {
+        cont.yield(event)
       }
-      cont.onTermination = { _ in
-        task.cancel()
-      }
-      return stream
-    })
-  }()
+    }
+    cont.onTermination = { _ in
+      task.cancel()
+    }
+    return stream
+  })
+
   public static let testValue = Self()
 }
 

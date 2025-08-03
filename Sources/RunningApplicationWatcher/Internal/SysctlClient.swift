@@ -2,6 +2,8 @@ import Dependencies
 import DependenciesMacros
 import Foundation
 
+// MARK: - SysctlClient
+
 @DependencyClient
 struct SysctlClient: Sendable {
   var run: @Sendable (
@@ -10,8 +12,8 @@ struct SysctlClient: Sendable {
     _: UnsafeMutableRawPointer?,
     _ oldlenp: UnsafeMutablePointer<Int>?,
     _: UnsafeMutableRawPointer?,
-    _ newlen: Int
-  ) -> Int32 = { _, _, _, _, _, _ in -1 }
+    _ newlen: Int)
+    -> Int32 = { _, _, _, _, _, _ in -1 }
 
   func isZombie(pid: pid_t) -> Bool {
     var kinfo = kinfo_proc()
@@ -26,14 +28,16 @@ struct SysctlClient: Sendable {
   }
 }
 
+// MARK: DependencyKey
+
 extension SysctlClient: DependencyKey {
   static let liveValue = Self(run: sysctl)
 
   static let testValue = Self()
 
-#if DEBUG
-  static let nonZombie = SysctlClient( run: { _, _, _, _, _, _ in 0 } )
-#endif
+  #if DEBUG
+  static let nonZombie = SysctlClient(run: { _, _, _, _, _, _ in 0 })
+  #endif
 }
 
 extension DependencyValues {

@@ -1,15 +1,16 @@
-import Testing
-import Dependencies
 import AppKit
 import ApplicationServices
+import Dependencies
 import RBKit
+import Testing
 
 @testable import RunningApplicationWatcher
 
 @Suite(.serialized)
 @MainActor
 struct RunningApplicationWatcherTests {
-  private static let testSleepDuration: Duration = .seconds(0.02)
+
+  // MARK: Internal
 
   @Test
   func events_shouldObserveCorrectNSWorkSpaceKeyPaths() async throws {
@@ -19,21 +20,20 @@ struct RunningApplicationWatcherTests {
     } operation: {
       var observeCalls: [(keyPath: String, options: NSKeyValueObservingOptions)] = []
       let mockWorkspace = NSWorkspace.Mock()
-      mockWorkspace._addObserver = { observer, keyPath, options, context in
+      mockWorkspace._addObserver = { _, keyPath, options, _ in
         observeCalls.append((keyPath: keyPath, options: options))
       }
       let sut = RunningApplicationWatcher(workspace: mockWorkspace)
 
       Task {
-        for await _ in sut.events() {
-        }
+        for await _ in sut.events() { }
       }
 
       try? await Task.sleep(for: Self.testSleepDuration)
 
       let expectedCalls = [
         (keyPath: "runningApplications", options: NSKeyValueObservingOptions([.initial, .new])),
-        (keyPath: "frontmostApplication", options: NSKeyValueObservingOptions([.initial, .new]))
+        (keyPath: "frontmostApplication", options: NSKeyValueObservingOptions([.initial, .new])),
       ]
 
       for (i, call) in expectedCalls.enumerated() {
@@ -79,12 +79,12 @@ struct RunningApplicationWatcherTests {
       for (_, value) in sut.appObservations {
         #expect(value.count == 4)
       }
-      
+
       let expectedEvents: [RunningApplicationEvent] = [
         .launched(mockApps),
-        .activated(mockApp1)
+        .activated(mockApp1),
       ]
-      
+
       #expect(collectedEvents == expectedEvents)
     }
   }
@@ -112,11 +112,11 @@ struct RunningApplicationWatcherTests {
 
       #expect(sut.appObservations.keys.count == 1)
       #expect(sut.appObservations[regularApp]?.count == 4)
-      
+
       let expectedEvents: [RunningApplicationEvent] = [
-        .launched([regularApp])
+        .launched([regularApp]),
       ]
-      
+
       #expect(collectedEvents == expectedEvents)
     }
   }
@@ -140,8 +140,7 @@ struct RunningApplicationWatcherTests {
             ptr.pointee = ProcessSerialNumber(highLongOfPSN: 1, lowLongOfPSN: 1)
           }
           return noErr
-        }
-      )
+        })
       deps.sysctlClient = .nonZombie
     } operation: {
       let xpcApp = AppMock(_isFinishedLaunching: false, _processIdentifier: 0)
@@ -164,11 +163,63 @@ struct RunningApplicationWatcherTests {
 
       #expect(sut.appObservations.keys.count == 1)
       #expect(sut.appObservations[regularApp]?.count == 4)
-      
+
       let expectedEvents: [RunningApplicationEvent] = [
-        .launched([regularApp])
+        .launched([regularApp]),
       ]
-      
+
+      #expect(collectedEvents == expectedEvents)
+    }
+  }
+
+  @Test
+  func events_withPasswordsAppAsXPC_shouldNotSkipApp() async throws {
+    await withDependencies { deps in
+      deps.processInfoClient = ProcessesClient(
+        getProcessInformation: { _, info in
+          // Both apps are XPC processes
+          info.pointee.processType = NSHFSTypeCodeFromFileType("'XPC!'")
+          return .zero
+        },
+        getProcessForPID: { pid, ptr in
+          if pid == 0 {
+            ptr.pointee = ProcessSerialNumber(highLongOfPSN: 0, lowLongOfPSN: 0)
+          } else {
+            ptr.pointee = ProcessSerialNumber(highLongOfPSN: 1, lowLongOfPSN: 1)
+          }
+          return noErr
+        })
+      deps.sysctlClient = .nonZombie
+    } operation: {
+      let passwordsApp = AppMock(_isFinishedLaunching: false, _bundleIdentifier: "com.apple.Passwords", _processIdentifier: 0)
+      let regularXPCApp = AppMock(_isFinishedLaunching: false, _bundleIdentifier: "com.example.xpc", _processIdentifier: 1)
+      let mockApps = [passwordsApp, regularXPCApp]
+      let mockWorkspace = NSWorkspace.Mock()
+
+      var collectedEvents: [RunningApplicationEvent] = []
+      let sut = RunningApplicationWatcher(workspace: mockWorkspace)
+
+      Task {
+        for await event in sut.events() {
+          collectedEvents.append(event)
+        }
+      }
+
+      mockWorkspace._runningApplications = mockApps
+
+      try? await Task.sleep(for: Self.testSleepDuration)
+
+      // Passwords app should be observed despite being XPC
+      #expect(sut.appObservations.keys.contains(passwordsApp))
+      #expect(sut.appObservations[passwordsApp]?.count == 4)
+
+      // Regular XPC app should not be observed
+      #expect(!sut.appObservations.keys.contains(regularXPCApp))
+
+      let expectedEvents: [RunningApplicationEvent] = [
+        .launched([passwordsApp]),
+      ]
+
       #expect(collectedEvents == expectedEvents)
     }
   }
@@ -178,7 +229,7 @@ struct RunningApplicationWatcherTests {
     await withDependencies { deps in
       deps.processInfoClient = .nonXPC
       deps.sysctlClient = SysctlClient(
-        run: { mib, miblen, oldp, oldlenp, newp, newlen in
+        run: { mib, _, oldp, _, _, _ in
           // Mock sysctl behavior: return zombie status based on PID
           if let kinfo = oldp?.assumingMemoryBound(to: kinfo_proc.self) {
             if mib?[3] == 0 { // PID 0 is zombie
@@ -188,8 +239,7 @@ struct RunningApplicationWatcherTests {
             }
           }
           return 0
-        }
-      )
+        })
     } operation: {
       let zombieApp = AppMock(_isFinishedLaunching: false, _processIdentifier: 0)
       let regularApp = AppMock(_isFinishedLaunching: false, _processIdentifier: 1)
@@ -210,11 +260,11 @@ struct RunningApplicationWatcherTests {
 
       #expect(sut.appObservations.keys.count == 1)
       #expect(sut.appObservations[regularApp]?.count == 4)
-      
+
       let expectedEvents: [RunningApplicationEvent] = [
-        .launched([regularApp])
+        .launched([regularApp]),
       ]
-      
+
       #expect(collectedEvents == expectedEvents)
     }
   }
@@ -312,7 +362,7 @@ struct RunningApplicationWatcherTests {
       try? await Task.sleep(for: Self.testSleepDuration)
 
       let expectedEvents: [RunningApplicationEvent] = [
-        .launched([observedApp])
+        .launched([observedApp]),
       ]
 
       #expect(collectedEvents == expectedEvents)
@@ -409,7 +459,7 @@ struct RunningApplicationWatcherTests {
         .launched([mockApp]),
         .didFinishedLaunching(mockApp),
       ]
-      
+
       #expect(collectedEvents == expectedEvents)
     }
   }
@@ -441,7 +491,7 @@ struct RunningApplicationWatcherTests {
         .launched([mockApp]),
         .activationPolicyChanged(mockApp),
       ]
-      
+
       #expect(collectedEvents == expectedEvents)
     }
   }
@@ -472,7 +522,7 @@ struct RunningApplicationWatcherTests {
         .launched([mockApp]),
         .hidden(mockApp),
       ]
-      
+
       #expect(collectedEvents == expectedEvents)
     }
   }
@@ -504,7 +554,7 @@ struct RunningApplicationWatcherTests {
         .launched([mockApp]),
         .unhidden(mockApp),
       ]
-      
+
       #expect(collectedEvents == expectedEvents)
     }
   }
@@ -530,25 +580,30 @@ struct RunningApplicationWatcherTests {
       }
 
       try? await Task.sleep(for: Self.testSleepDuration)
-      
+
       // Verify app is being observed before termination
       #expect(sut.appObservations.keys.contains(mockApp))
       #expect(sut.appObservations[mockApp]?.count == 4)
-      
+
       mockApp._isTerminated = true
 
       try? await Task.sleep(for: Self.testSleepDuration)
-      
+
       // Verify app observations are cleaned up after termination
       #expect(!sut.appObservations.keys.contains(mockApp))
       #expect(sut.appObservations[mockApp] == nil)
-      
+
       let expectedEvents: [RunningApplicationEvent] = [
         .launched([mockApp]),
         .terminated(mockApp),
       ]
-      
+
       #expect(collectedEvents == expectedEvents)
     }
   }
+
+  // MARK: Private
+
+  private static let testSleepDuration = Duration.seconds(0.02)
+
 }

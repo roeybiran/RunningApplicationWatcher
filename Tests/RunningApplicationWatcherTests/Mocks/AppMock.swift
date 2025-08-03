@@ -1,5 +1,5 @@
-import RBKit
 import AppKit
+import RBKit
 
 /// Equates by PID, for easier testing.
 class AppMock: NSRunningApplication.Mock, @unchecked Sendable {
@@ -11,4 +11,3 @@ class AppMock: NSRunningApplication.Mock, @unchecked Sendable {
     }
   }
 }
-

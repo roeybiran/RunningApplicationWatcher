@@ -1,7 +1,7 @@
-import Testing
-import Dependencies
 import ApplicationServices
+import Dependencies
 import Foundation
+import Testing
 
 @testable import RunningApplicationWatcher
 
@@ -14,9 +14,8 @@ struct ProcessesClientTests {
         info.pointee.processType = NSHFSTypeCodeFromFileType("'XPC!'")
         return .zero
       },
-      getProcessForPID: { _, _ in noErr }
-    )
-    
+      getProcessForPID: { _, _ in noErr })
+
     #expect(client.isXPC(pid: 123) == true)
   }
 
@@ -27,9 +26,8 @@ struct ProcessesClientTests {
         info.pointee.processType = NSHFSTypeCodeFromFileType("'APPL'")
         return .zero
       },
-      getProcessForPID: { _, _ in noErr },
-    )
-    
+      getProcessForPID: { _, _ in noErr })
+
     #expect(client.isXPC(pid: 123) == false)
   }
 
@@ -37,14 +35,13 @@ struct ProcessesClientTests {
   func isXPC_withValidPid_shouldCallGetProcessInformationOnce() async throws {
     await confirmation(expectedCount: 1) { c in
       let client = ProcessesClient(
-        getProcessInformation: { psn, info in
+        getProcessInformation: { _, info in
           c()
           info.pointee.processType = NSHFSTypeCodeFromFileType("'XPC!'")
           return .zero
         },
-        getProcessForPID: { _, _ in noErr }
-      )
-      
+        getProcessForPID: { _, _ in noErr })
+
       _ = client.isXPC(pid: 456)
     }
   }
@@ -61,9 +58,8 @@ struct ProcessesClientTests {
           c()
           #expect(pid == 456)
           return noErr
-        }
-      )
-      
+        })
+
       _ = client.isXPC(pid: 456)
     }
   }

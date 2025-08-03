@@ -1,7 +1,7 @@
-import Testing
-import Dependencies
 import AppKit
+import Dependencies
 import RBKit
+import Testing
 
 @testable import RunningApplicationWatcher
 
@@ -15,7 +15,6 @@ struct RunningApplicationWatcherClientTests {
         deps.processInfoClient = .nonXPC
         deps.sysctlClient = .nonZombie
       } operation: {
-
         let client = RunningApplicationWatcherClient.liveValue
 
         var events1 = [RunningApplicationEvent]()

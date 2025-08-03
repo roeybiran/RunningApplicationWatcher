@@ -3,13 +3,14 @@ import os
 
 private let logger = Logger(
   subsystem: Bundle.main.bundleIdentifier ?? "",
-  category: "running application watcher"
-)
+  category: "running application watcher")
 
 func debugLog(_ message: String) {
   guard UserDefaults.standard.bool(forKey: "_RunningApplicationWatcherLoggingEnabled") else { return }
   logger.log("\(message, privacy: .public)")
 }
+
+// MARK: - Event
 
 enum Event: CustomStringConvertible {
   case launched
@@ -20,6 +21,8 @@ enum Event: CustomStringConvertible {
   case activated
   case skippingXPC
   case skippingZombie
+
+  // MARK: Internal
 
   var description: String {
     switch self {
@@ -46,5 +49,3 @@ enum Event: CustomStringConvertible {
 func debugLog(event: Event, app: NSRunningApplication?) {
   debugLog("\(event): <\(app?.localizedName ?? "UNKNOWN")>")
 }
-
-
