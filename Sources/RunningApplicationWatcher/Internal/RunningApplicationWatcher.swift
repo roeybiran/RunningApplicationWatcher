@@ -13,36 +13,15 @@ final class RunningApplicationWatcher {
 
   // MARK: Lifecycle
 
-  public init(workspace: NSWorkspace) {
+  init(workspace: NSWorkspace) {
     self.workspace = workspace
   }
 
   // MARK: Internal
 
-  // "these private APIs are more reliable than Bundle.init? as it can return nil (e.g. for com.apple.dock.etci)"
-  // https://github.com/lwouis/alt-tab-macos/blob/70ee681757628af72ed10320ab5dcc552dcf0ef6/src/logic/Applications.swift#L115
-  private func getNSFileType(pid: pid_t) -> String? {
-    var psn = ProcessSerialNumber()
-    _ = processInfo.getProcessForPID(pid, &psn)
-    var info = ProcessInfoRec()
-    _ = processInfo.getProcessInformation(&psn, &info)
-    // https://github.com/lwouis/alt-tab-macos/blob/70ee681757628af72ed10320ab5dcc552dcf0ef6/src/api-wrappers/HelperExtensions.swift#L174
-    let nsFileType = NSFileTypeForHFSTypeCode(info.processType)
+  var appObservations = [NSRunningApplication: [NSKeyValueObservation]]()
 
-    assert({
-      if let nsFileType, nsFileType.contains("XPC") {
-        return nsFileType == "'XPC!'"
-      } else {
-        return true
-      }
-    }())
-
-    return nsFileType
-  }
-
-  // MARK: Public
-
-  public func events() -> AsyncStream<RunningApplicationEvent> {
+  func events() -> AsyncStream<RunningApplicationEvent> {
     let (stream, continuation) = AsyncStream.makeStream(of: RunningApplicationEvent.self)
 
     let runningApplicationsObservation = workspace.observe(\.runningApplications, options: [
@@ -149,7 +128,6 @@ final class RunningApplicationWatcher {
     return stream
   }
 
-
   // MARK: Private
 
   @Dependency(\.processInfoClient) private var processInfo
@@ -157,7 +135,26 @@ final class RunningApplicationWatcher {
   // @Dependency(\.nsWorkspaceClient) private var workspace
 
   private let workspace: NSWorkspace
-  
-  var appObservations = [NSRunningApplication: [NSKeyValueObservation]]()
+
+  /// "these private APIs are more reliable than Bundle.init? as it can return nil (e.g. for com.apple.dock.etci)"
+  /// https://github.com/lwouis/alt-tab-macos/blob/70ee681757628af72ed10320ab5dcc552dcf0ef6/src/logic/Applications.swift#L115
+  private func getNSFileType(pid: pid_t) -> String? {
+    var psn = ProcessSerialNumber()
+    _ = processInfo.getProcessForPID(pid, &psn)
+    var info = ProcessInfoRec()
+    _ = processInfo.getProcessInformation(&psn, &info)
+    // https://github.com/lwouis/alt-tab-macos/blob/70ee681757628af72ed10320ab5dcc552dcf0ef6/src/api-wrappers/HelperExtensions.swift#L174
+    let nsFileType = NSFileTypeForHFSTypeCode(info.processType)
+
+    assert({
+      if let nsFileType, nsFileType.contains("XPC") {
+        return nsFileType == "'XPC!'"
+      } else {
+        return true
+      }
+    }())
+
+    return nsFileType
+  }
 
 }

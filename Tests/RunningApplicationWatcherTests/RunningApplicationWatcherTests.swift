@@ -6,6 +6,8 @@ import Testing
 
 @testable import RunningApplicationWatcher
 
+// MARK: - RunningApplicationWatcherTests
+
 @Suite("RunningApplicationWatcher", .serialized)
 @MainActor
 struct RunningApplicationWatcherTests {
@@ -273,7 +275,6 @@ struct RunningApplicationWatcherTests {
       }
     }
   }
-
 
   @Suite("NSWorkspace.frontmostApplication Observation", .serialized)
   @MainActor
