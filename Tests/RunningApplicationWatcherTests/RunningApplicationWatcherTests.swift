@@ -11,6 +11,7 @@ import Testing
 @Suite("RunningApplicationWatcher", .serialized)
 @MainActor
 struct RunningApplicationWatcherTests {
+
   @Suite("NSWorkspace.runningApplications Observation", .serialized)
   @MainActor
   struct RunningApplicationsTests {
@@ -279,6 +280,7 @@ struct RunningApplicationWatcherTests {
   @Suite("NSWorkspace.frontmostApplication Observation", .serialized)
   @MainActor
   struct FrontmostApplicationTests {
+
     @Test("Should emit activated event when frontmost application changes")
     func withFrontmostApplicationChanged_shouldEmitActivatedEvent() async throws {
       await withDependencies { deps in
@@ -381,6 +383,7 @@ struct RunningApplicationWatcherTests {
   @Suite("NSRunningApplication Observations", .serialized)
   @MainActor
   struct NSRunningApplicationObservationsTests {
+
     @Test("Should emit didFinishedLaunching event when initial isFinishedLaunching is true")
     func withInitialIsFinishedLaunchingTrue_shouldEmitDidFinishedLaunchingEvent() async throws {
       await withDependencies { deps in
