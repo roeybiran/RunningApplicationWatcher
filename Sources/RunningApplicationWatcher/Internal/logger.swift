@@ -47,5 +47,5 @@ enum Event: CustomStringConvertible {
 }
 
 func debugLog(event: Event, app: NSRunningApplication?) {
-  debugLog("\(event): <\(app?.localizedName ?? "UNKNOWN")>")
+  debugLog("\(event): \(app?.bundleIdentifier ?? "UNKNOWN APP")")
 }
